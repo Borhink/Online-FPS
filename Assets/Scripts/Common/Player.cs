@@ -1,45 +1,35 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System;
+using System.Net.Sockets;
 using UnityEngine;
 
 public class Player : NetworkEntity
 {
-	private int         _networkid = -1;
 	private string      _username = "Not Found";
-    
-	public int		    NetworkID { get { return _networkid; }}
 	public string		Username { get { return _username; }}
 
     void Start()
     {
         Debug.Log("Player Start");
-        if (isMine)
-        {
-            Debug.Log("SEND SPAWN PACKET");
-            ClientManager cm = GameManager.instance.GetComponent<ClientManager>();
-            cm.Send(
-                PacketHandler.newPacket((int)PacketID.HasSpawn
-                )
-            );
-        }
     }
 
-   public Player(int id, string username, int networkid)
+   public Player(int networkid, bool isLocalPlayer, string username)
    {
-      this._networkid = networkid;
+      this.networkID = networkid;
+      this.isLocalPlayer = isLocalPlayer;
       this._username = username;
    }
 
    public Player(Packet reader)
     {
-        _networkid = reader.ReadInt();
+        networkID = reader.ReadInt();
         _username = reader.ReadString();
     }
 
     public void Write(Packet writer)
     {
-        writer.Add(_networkid);
+        writer.Add(networkID);
         writer.Add(_username);
     }
 }

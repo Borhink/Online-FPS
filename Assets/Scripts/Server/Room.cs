@@ -14,7 +14,7 @@ public class Room {
 	private string		_levelName;
 
 	private List<Spawn>	_spawnPoints = new List<Spawn>();
-	private int				_spawnIndex = -1;
+	private int			_spawnIndex = -1;
 
 	public string LevelName { get { return _levelName; }}
 
@@ -39,6 +39,19 @@ public class Room {
 	{
 		if (_players.ContainsKey(client.account.id))
 		{
+			Spawn spawn = NextSpawn();
+			NetworkEntity entity = SocketScript.instance.Instantiate("Prefabs/Player", ServerManager.GetNetworkID(), false, spawn.position, spawn.rotation, _level.transform);
+			Player newPlayer =  entity.gameObject.GetComponent<Player>();
+			client.account.player = newPlayer;
+			Packet packet = PacketHandler.newPacket(
+				(int)PacketID.Instantiate,
+				"Prefabs/Player",
+				newPlayer.networkID,
+				true,
+				spawn.position,
+				spawn.rotation);
+			client.Send(packet);
+
 			foreach (Client other in _players.Values)
 			{
 				Debug.Log("other : " + other.ID + ", client : " + other.ID);
@@ -46,23 +59,22 @@ public class Room {
 				{
 					Debug.Log("other.account.id != client.account.id");
 					Player otherPlayer = other.account.player;
-					Packet packet = PacketHandler.newPacket(
+					packet = PacketHandler.newPacket(
 						(int)PacketID.Instantiate,
 						"Prefabs/Player",
-						otherPlayer.NetworkID,
+						otherPlayer.networkID,
 						false,
 						otherPlayer.transform.position,
 						otherPlayer.transform.rotation);
 					client.Send(packet);
 
-					Player clientPlayer = client.account.player;
 					packet = PacketHandler.newPacket(
 						(int)PacketID.Instantiate,
 						"Prefabs/Player",
-						clientPlayer.NetworkID,
+						newPlayer.networkID,
 						false,
-						clientPlayer.transform.position,
-						clientPlayer.transform.rotation);
+						spawn.position,
+						spawn.rotation);
 					other.Send(packet);
 				}
 			}
@@ -72,6 +84,7 @@ public class Room {
 	private void LoadLevel()
 	{
 		_level = GameObject.Instantiate(Resources.Load<GameObject>("Levels/"+_levelName), new Vector3(0f, _roomOffset * id, 0f), Quaternion.identity);
+		_level.name = "Room " + id + " - " + _level;
 
 		Transform spawnPoints =_level.transform.Find("SpawnPoints");
 		foreach (Transform child in spawnPoints)
@@ -87,11 +100,9 @@ public class Room {
 		LoadLevel();
 		foreach (Client client in _players.Values)
 		{
-			Spawn spawn = NextSpawn();
 			Packet packet = PacketHandler.newPacket(
 				(int)PacketID.LoadScene,
 				_levelName);
-			spawn.Write(packet);
 			client.Send(packet);
 		}
 	}

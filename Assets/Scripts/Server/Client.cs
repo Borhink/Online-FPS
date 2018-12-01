@@ -12,31 +12,30 @@ using UnityEngine;
 
 public class Client {
 	private ServerManager	_sm;
-	private Socket			_socket;
-
+	public Socket			socket {get; private set;}
 	public Account	account;
 	public Room		room = null;
 	private int		_id = -1;
 	private string	_login = "Not Found";
 	private bool 	_connected = false;
 
-	public bool Connected { get { return _connected; }}
+	public bool		Connected { get { return _connected; }}
 	public int		ID { get { return _id; }}
 	public string	Login { get { return _login; }}
 
 	public Client(ServerManager sm, Socket socket)
 	{
-		_sm = sm;
-		_socket = socket;
+		this._sm = sm;
+		this.socket = socket;
 	}
 
 	public void Send(Packet packet)
 	{
-		if (_socket == null)
+		if (socket == null)
 			return ;
-		if (!_socket.Connected)
+		if (!socket.Connected)
 			return ;
-		_socket.Send(packet.GetBuffer(), packet.Size(), SocketFlags.None);
+		socket.Send(packet.GetBuffer(), packet.Size(), SocketFlags.None);
 	}
 
 	public void Disconnect()
@@ -56,7 +55,7 @@ public class Client {
 				info += "#" + _id;
 		}
 		else
-			info += _socket.GetHashCode();
+			info += socket.GetHashCode();
 		
 		Debug.Log("[Server: " + info + "] " + message);
 		_sm.logServer.Add("[" + info + "] " + message.ToString());
@@ -108,10 +107,10 @@ public class Client {
 			);
 			account.Write(packet);
 			Log("PlayerData Packet Size: " + packet.Size());
-			_sm.SendTo(_socket, packet);
+			_sm.SendTo(socket, packet);
 
 			// Vers le home
-			_sm.SendTo(_socket,
+			_sm.SendTo(socket,
 				PacketHandler.newPacket(
 					(int)PacketID.OpenMenu,
 					(int)MenuID.Home
@@ -122,7 +121,7 @@ public class Client {
 		{
 			// Error Popup
 			Log(DatabaseHandler.Error);
-			_sm.SendTo(_socket,
+			_sm.SendTo(socket,
 				PacketHandler.newPacket(
 					(int)PacketID.Popup,
 					1,
@@ -149,10 +148,10 @@ public class Client {
 			);
 			account.Write(packet);
 			Log("PlayerData Packet Size: " + packet.Size());
-			_sm.SendTo(_socket, packet);
+			_sm.SendTo(socket, packet);
 
 			// Vers le home
-			_sm.SendTo(_socket,
+			_sm.SendTo(socket,
 				PacketHandler.newPacket(
 					(int)PacketID.OpenMenu,
 					(int)MenuID.Home
@@ -163,7 +162,7 @@ public class Client {
 		{
 			// Error Popup
 			Log(DatabaseHandler.Error);
-			_sm.SendTo(_socket,
+			_sm.SendTo(socket,
 				PacketHandler.newPacket(
 					(int)PacketID.Popup,
 					1,
@@ -184,7 +183,7 @@ public class Client {
 		// );
 		// characterSelect.inventory.Write(packet);
 		// Log("Inventory Packet Size: " + packet.Size());
-		// _sm.SendTo(_socket, packet);
+		// _sm.SendTo(socket, packet);
 	}
 	
 	// public void CreateAndSendItem(int templateID, int quantity = 1)
@@ -201,7 +200,7 @@ public class Client {
 	// 			);
 	// 			item.Write(packet);
 	// 			Log("Add Item Packet Size: " + packet.Size());
-	// 			_sm.SendTo(_socket, packet);
+	// 			_sm.SendTo(socket, packet);
 	// 			Log("SUCCESS Add Item " + templateID + " to " + charac.name);
 
 	// 		}

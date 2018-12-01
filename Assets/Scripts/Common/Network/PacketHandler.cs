@@ -14,7 +14,7 @@ public enum PacketID {
 	LoadScene,
 	Play,
 
-	HasSpawn,
+	LoadComplete,
 
 	AccountData,
 

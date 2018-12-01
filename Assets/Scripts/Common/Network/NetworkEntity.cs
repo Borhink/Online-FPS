@@ -8,9 +8,12 @@ using UnityEngine;
 
 public class NetworkEntity : MonoBehaviour
 {
-	public string		prefabName;
-	public int			index;
-	public Socket		socket;
-	public SocketScript	ss;
-	public bool			isMine;
+	public int       	networkID;
+	// public int			clientID;
+	public bool			isLocalPlayer = false;
+	// public string		prefabName;
+	// public SocketScript	ss;
+
+	public Vector3		Position { get { return transform.position; }}
+	public Quaternion	Rotation { get { return transform.rotation; }}
 }

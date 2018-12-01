@@ -73,7 +73,7 @@ public class ClientManager : SocketScript {
 				_socket.Connect(GetAddress());
 				if (_socket.Connected)
 				{
-					Debug.Log("Socket est connecte!");
+					Debug.Log("Socket connectée : " + _socket.GetHashCode() );
 					Thread receiveThread = new Thread(new ThreadStart(ThreadReceive));
 					receiveThread.Start();
 					Thread checkIsConnectThread = new Thread(new ThreadStart(ThreadCheckIsConnected));
@@ -141,9 +141,7 @@ public class ClientManager : SocketScript {
 		PacketHandler.packetList.Add((int)PacketID.OpenMenu, Packet_OpenMenu); // Serv <=> Client (int, ...)
 		PacketHandler.packetList.Add((int)PacketID.LoadScene, Packet_LoadScene); // Serv => Client (string, Vec3)
 		// PacketHandler.packetList.Add((int)PacketID.Play, Packet_Play); // Serv <= Client ()
-
-		//Player
-		// PacketHandler.packetList.Add((int)PacketID.HasSpawn, Packet_HasSpawn); // Serv <= Client ()
+		// PacketHandler.packetList.Add((int)PacketID.LoadComplete, Packet_LoadComplete); // Serv <= Client ()
 
 		// Chat/Message/Popup
 		PacketHandler.packetList.Add((int)PacketID.Chat, Packet_Chat); // Serv <=> Client (int, [int], string)
@@ -174,7 +172,7 @@ public class ClientManager : SocketScript {
 		string scene = packet.ReadString();
 		// Vector3 position = packet.ReadVector3();
 		// Quaternion rotation = packet.ReadQuaternion();
-		_dispatcher.Invoke(() => GameManager.instance.LoadLevel(scene, position, rotation));
+		_dispatcher.Invoke(() => GameManager.instance.LoadLevel(scene));
 	}
 
 	/* *** Chat/Message/Popup *** */
@@ -213,13 +211,13 @@ public class ClientManager : SocketScript {
 	void Packet_Instantiate(Socket sender, Packet packet)
 	{
 		string prefabName = packet.ReadString();
-		int index = packet.ReadInt();
-		bool isMine = packet.ReadBool();
+		int networkID = packet.ReadInt();
+		bool isLocalPlayer = packet.ReadBool();
 		Vector3 position = packet.ReadVector3();
 		Quaternion rotation = packet.ReadQuaternion();
 		_dispatcher.Invoke(
 			() => {
-				NetworkEntity entity = Instantiate(index, prefabName, position, rotation, isMine);
+				NetworkEntity entity = Instantiate(prefabName, networkID, isLocalPlayer, position, rotation);
 			}
 		);
 	}

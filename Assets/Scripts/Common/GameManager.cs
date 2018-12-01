@@ -31,8 +31,6 @@ public class GameManager : MonoBehaviour {
 	public bool IsConnected()
 	{
 		bool connected = false;
-		// if (SocketScript.instance)
-		// 	connected = SocketScript.instance.IsConnected();
 		if (side == Side.Client && _clientManager)
 			connected = _clientManager.IsConnected();
 		else if (side == Side.Server && _serverManager)
@@ -90,12 +88,12 @@ public class GameManager : MonoBehaviour {
 		DatabaseManager.CloseDatabase();
 	}
 
-	public void LoadLevel(string name, Vector3 position, Quaternion rotation)
+	public void LoadLevel(string name)
 	{
-		StartCoroutine(LoadLevelAsync(name, position, rotation));
+		StartCoroutine(LoadLevelAsync(name));
 	}
 
-	IEnumerator LoadLevelAsync(string name, Vector3 position, Quaternion rotation)
+	IEnumerator LoadLevelAsync(string name)
 	{
 		AsyncOperation operation = SceneManager.LoadSceneAsync(name);
 
@@ -105,6 +103,11 @@ public class GameManager : MonoBehaviour {
 
 			yield return null;
 		}
-		GameObject player = GameObject.Instantiate(Resources.Load<GameObject>("Prefabs/Player"), position, rotation);
+		Debug.Log("SEND LOAD COMPLETE PACKET");
+		ClientManager cm = GameManager.instance.GetComponent<ClientManager>();
+		cm.Send(
+			PacketHandler.newPacket((int)PacketID.LoadComplete
+			)
+		);
 	}
 }

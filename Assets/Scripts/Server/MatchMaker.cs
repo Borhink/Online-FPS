@@ -50,11 +50,9 @@ public class MatchMaker {
 				room.Join(client);
 
 				// Charge le niveau
-				Spawn spawn = room.NextSpawn();
 				Packet packet = PacketHandler.newPacket(
 					(int)PacketID.LoadScene,
 					room.LevelName);
-				spawn.Write(packet);
 				client.Send(packet);
 				return;
 			}

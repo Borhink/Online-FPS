@@ -16,14 +16,19 @@ abstract public class SocketScript : MonoBehaviour {
 	protected Socket		_socket = null;
 	public ProtocolType		type = ProtocolType.Tcp;
 
+	
+	public Socket			Socket { get { return _socket; }}
+
 	void Awake()
 	{
 		instance = this;
 	}
+
 	private void Start() {
 		_dispatcher = GetComponent<Dispatcher>();
 		InitPacket();
 	}
+
 	public IPEndPoint GetAddress()
 	{
 		IPAddress ipAddress = IPAddress.Parse(address);
@@ -58,43 +63,29 @@ abstract public class SocketScript : MonoBehaviour {
 			return;
 		_socket.Close();
 	}
-	
-	public NetworkEntity	Instantiate(string prefabName, Vector3 position, Quaternion rotation)
-	{
-		GameObject prefab = Resources.Load<GameObject>(prefabName);
-		if (!prefab)
-			return null;
-		GameObject go = GameObject.Instantiate(prefab, position, rotation);
-		NetworkEntity remote = go.AddComponent<NetworkEntity>();
-		remote.prefabName = prefabName;
-		remote.index = go.GetInstanceID();
-		remote.ss = this;
-		remote.isMine = false;
-		remote.socket = null;
-		_entities.Add(remote.index, remote);
-		return remote;
-	}
-	public NetworkEntity	Instantiate(int index, string prefabName, Vector3 position, Quaternion rotation, bool isMine)
+
+	public NetworkEntity	Instantiate(string prefabName, int networkID, bool isLocalPlayer, Vector3 position, Quaternion rotation, Transform parent = null)
 	{
 		GameObject prefab = Resources.Load<GameObject>(prefabName);
 		if (!prefab)
 			return null;
 		GameObject go = GameObject.Instantiate(prefab, position, rotation);
 		NetworkEntity entity = go.GetComponent<NetworkEntity>();
-		entity.prefabName = prefabName;
-		entity.index = index;
-		entity.ss = this;
-		entity.isMine = isMine;
-		entity.socket = null;
-		_entities.Add(index, entity);
+		entity.networkID = networkID;
+		entity.isLocalPlayer = isLocalPlayer;
+		if (parent)
+			go.transform.parent = parent;
+		_entities.Add(networkID, entity);
 		return entity;
 	}
+
 	public void		Destroy(NetworkEntity remote)
 	{
-		_entities.Remove(remote.index);
+		_entities.Remove(remote.networkID);
 		Destroy(remote.gameObject);
 	}
-	public NetworkEntity		GetGameObject(int id)
+
+	public NetworkEntity	GetGameObject(int id)
 	{
 		if (!_entities.ContainsKey(id))
 			return null;

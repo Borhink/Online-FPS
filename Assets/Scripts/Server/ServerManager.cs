@@ -140,7 +140,7 @@ public class ServerManager : SocketScript {
 	{
 		foreach(NetworkEntity remote in _entities.Values)
 		{
-			if (remote.socket == client)
+			// if (remote.clientID == client.GetHashCode())
 			{
 				_dispatcher.Invoke(() => Destroy(remote));
 			}
@@ -287,11 +287,9 @@ public class ServerManager : SocketScript {
 
 		// Menu - Scene
 		PacketHandler.packetList.Add((int)PacketID.OpenMenu, Packet_OpenMenu); // Serv <=> Client (int, ...)
-		// PacketHandler.packetList.Add((int)PacketID.LoadScene, Packet_LoadScene); // Serv => Client (string, Vec3)
+		// PacketHandler.packetList.Add((int)PacketID.LoadScene, Packet_LoadScene); // Serv => Client (string)
 		PacketHandler.packetList.Add((int)PacketID.Play, Packet_Play); // Serv <= Client ()
-
-		//Player
-		PacketHandler.packetList.Add((int)PacketID.HasSpawn, Packet_HasSpawn); // Serv <= Client ()
+		PacketHandler.packetList.Add((int)PacketID.LoadComplete, Packet_LoadComplete); // Serv <= Client ()
 
 		// Chat/Message/Popup
 		PacketHandler.packetList.Add((int)PacketID.Chat, Packet_Chat); // Serv <=> Client (int, [int], string)
@@ -354,12 +352,14 @@ public class ServerManager : SocketScript {
 			_matchMaker.FindMatch(client);
 	}
 
-	void Packet_HasSpawn(Socket sender, Packet packet)
+	void Packet_LoadComplete(Socket sender, Packet packet)
 	{
 		Client client = _clientsTable[sender];
 		if (client != null && client.room != null)
 		{
-			client.room.SpawnPlayer(client);
+			_dispatcher.Invoke(
+				() => {	client.room.SpawnPlayer(client); }
+			);
 		}
 	}
 
