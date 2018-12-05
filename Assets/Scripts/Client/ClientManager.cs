@@ -22,9 +22,36 @@ public class ClientManager : SocketScript {
 
 	override public void Run()
 	{
+		Debug.Log("run");
 		StartCoroutine(AutoConnect());
 	}
 
+	IEnumerator AutoConnect()
+	{
+		bool autoconnect = true;
+		while (autoconnect)
+		{
+			try {
+				_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, type);
+				_socket.Connect(GetAddress());
+				if (_socket.Connected)
+				{
+					Debug.Log("Socket connectée : " + _socket.GetHashCode() );
+					Thread receiveThread = new Thread(new ThreadStart(ThreadReceive));
+					receiveThread.Start();
+					Thread checkIsConnectThread = new Thread(new ThreadStart(ThreadCheckIsConnected));
+					checkIsConnectThread.Start();
+					autoconnect = false;
+				}
+			} catch(SocketException e) {
+				_socket = null;
+				Debug.Log("Erreur connection au serveur: " + e.Message);
+			}
+			yield return new WaitForSeconds(5.0f);
+		}
+	}
+
+#region Threads
 	void ThreadReceive()
 	{
 		byte[] byteBuffer;
@@ -63,52 +90,32 @@ public class ClientManager : SocketScript {
 			Thread.Sleep(10);
 		}
 	}
-	IEnumerator AutoConnect()
-	{
-		bool autoconnect = true;
-		while (autoconnect)
-		{
-			try {
-				_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, type);
-				_socket.Connect(GetAddress());
-				if (_socket.Connected)
-				{
-					Debug.Log("Socket connectée : " + _socket.GetHashCode() );
-					Thread receiveThread = new Thread(new ThreadStart(ThreadReceive));
-					receiveThread.Start();
-					Thread checkIsConnectThread = new Thread(new ThreadStart(ThreadCheckIsConnected));
-					checkIsConnectThread.Start();
-					autoconnect = false;
-				}
-			} catch(SocketException e) {
-				_socket = null;
-				Debug.Log("Erreur connection au serveur: " + e.Message);
-			}
-			yield return new WaitForSeconds(5.0f);
-		}
-		
-	}
-	public void Disconnect()
-	{
-		_socket.Close();
-		_socket = null;
-		_dispatcher.Invoke(() => {
-			PanelManager.instance.ActivateLoginPanel();
-			Run();
-		});
-	}
 
 	void ThreadCheckIsConnected()
 	{
 		while(true)
 		{
+			Debug.Log("ISConnected");
 			if (_socket.Poll(10, SelectMode.SelectRead) && _socket.Available == 0 && !readMutex)
 			{
+			Debug.Log("NOT connected");
 				Disconnect();
 				return;
 			}
 			Thread.Sleep(5);
 		}
+	}
+#endregion
+
+	public void Disconnect()
+	{
+		Debug.Log("Disconnected");
+		_socket.Close();
+		_socket = null;
+		_dispatcher.Invoke(() => {
+			GameManager.instance.LoadLevel("MainMenu");
+			Run();
+		});
 	}
 
 	public void Send(Packet packet)
@@ -148,7 +155,7 @@ public class ClientManager : SocketScript {
 		PacketHandler.packetList.Add((int)PacketID.Popup, Packet_Popup); // Serv => Client (int, string)
 
 		// GameObject
-		PacketHandler.packetList.Add((int)PacketID.Instantiate, Packet_Instantiate); // Serv => Client (str, int, bool, Vec3, Quat)
+		PacketHandler.packetList.Add((int)PacketID.Instantiate, Packet_Instantiate); // Serv => Client (str, int, int, bool, Vec3, Quat)
 		PacketHandler.packetList.Add((int)PacketID.Destroy, Packet_Destroy); // Serv => Client (int)
 		PacketHandler.packetList.Add((int)PacketID.UpdatePosition, Packet_UpdatePosition); // Serv => Client (int, Vec3)
 
@@ -170,8 +177,6 @@ public class ClientManager : SocketScript {
 	void Packet_LoadScene(Socket sender, Packet packet)
 	{
 		string scene = packet.ReadString();
-		// Vector3 position = packet.ReadVector3();
-		// Quaternion rotation = packet.ReadQuaternion();
 		_dispatcher.Invoke(() => GameManager.instance.LoadLevel(scene));
 	}
 
@@ -212,19 +217,21 @@ public class ClientManager : SocketScript {
 	{
 		string prefabName = packet.ReadString();
 		int networkID = packet.ReadInt();
+		int ownerID = packet.ReadInt();
 		bool isLocalPlayer = packet.ReadBool();
 		Vector3 position = packet.ReadVector3();
 		Quaternion rotation = packet.ReadQuaternion();
 		_dispatcher.Invoke(
 			() => {
-				NetworkEntity entity = Instantiate(prefabName, networkID, isLocalPlayer, position, rotation);
+				NetworkEntity entity = Instantiate(prefabName, networkID, ownerID, isLocalPlayer, position, rotation);
 			}
 		);
 	}
+
 	void Packet_Destroy(Socket sender, Packet packet)
 	{
 		int index = packet.ReadInt();
-		NetworkEntity entity = GetGameObject(index);
+		NetworkEntity entity = GetEntity(index);
 		if (entity != null)
 		{
 			_dispatcher.Invoke(
@@ -237,7 +244,7 @@ public class ClientManager : SocketScript {
 	{
 		int index = packet.ReadInt();
 		Vector3 position = packet.ReadVector3();
-		NetworkEntity entity = GetGameObject(index);
+		NetworkEntity entity = GetEntity(index);
 		if (entity != null)
 		{
 			_dispatcher.Invoke(

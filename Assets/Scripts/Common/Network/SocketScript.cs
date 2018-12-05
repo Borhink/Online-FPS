@@ -64,7 +64,7 @@ abstract public class SocketScript : MonoBehaviour {
 		_socket.Close();
 	}
 
-	public NetworkEntity	Instantiate(string prefabName, int networkID, bool isLocalPlayer, Vector3 position, Quaternion rotation, Transform parent = null)
+	public NetworkEntity	Instantiate(string prefabName, int networkID, int ownerID, bool isLocalPlayer, Vector3 position, Quaternion rotation, Transform parent = null)
 	{
 		GameObject prefab = Resources.Load<GameObject>(prefabName);
 		if (!prefab)
@@ -72,6 +72,7 @@ abstract public class SocketScript : MonoBehaviour {
 		GameObject go = GameObject.Instantiate(prefab, position, rotation);
 		NetworkEntity entity = go.GetComponent<NetworkEntity>();
 		entity.networkID = networkID;
+		entity.ownerID = networkID;
 		entity.isLocalPlayer = isLocalPlayer;
 		if (parent)
 			go.transform.parent = parent;
@@ -79,13 +80,14 @@ abstract public class SocketScript : MonoBehaviour {
 		return entity;
 	}
 
-	public void		Destroy(NetworkEntity remote)
+	public void		Destroy(NetworkEntity entity)
 	{
-		_entities.Remove(remote.networkID);
-		Destroy(remote.gameObject);
+		_entities.Remove(entity.networkID);
+		if (entity != null && entity.gameObject != null)
+			Destroy(entity.gameObject);
 	}
 
-	public NetworkEntity	GetGameObject(int id)
+	public NetworkEntity	GetEntity(int id)
 	{
 		if (!_entities.ContainsKey(id))
 			return null;

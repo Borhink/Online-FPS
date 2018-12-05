@@ -64,4 +64,12 @@ public class MatchMaker {
 		newRoom.Join(client);
 		_roomID++;
 	}
+
+	public void CloseAllRooms()
+	{
+		foreach (Room room in _rooms.Values)
+		{
+			room.Close();
+		}
+	}
 }

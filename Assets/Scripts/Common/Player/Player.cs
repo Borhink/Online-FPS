@@ -14,22 +14,26 @@ public class Player : NetworkEntity
         Debug.Log("Player Start");
     }
 
-   public Player(int networkid, bool isLocalPlayer, string username)
+    public void Move(Vector3 dir)
+    {
+        //TODO
+    }
+
+   public Player(int networkID, int ownerID, bool isLocalPlayer, string username)
+   : base(networkID, ownerID, isLocalPlayer)
    {
-      this.networkID = networkid;
-      this.isLocalPlayer = isLocalPlayer;
       this._username = username;
    }
 
    public Player(Packet reader)
+   : base(reader)
     {
-        networkID = reader.ReadInt();
         _username = reader.ReadString();
     }
 
-    public void Write(Packet writer)
+    public override void Write(Packet writer)
     {
-        writer.Add(networkID);
+        base.Write(writer);
         writer.Add(_username);
     }
 }

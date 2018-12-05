@@ -10,10 +10,12 @@ using UnityEngine;
 
 public class ServerManager : SocketScript {
 	public static int NetworkID = 0;
+
 	public List<string> logServer = new List<string>();
 
-	Dictionary<Socket, Client> _clientsTable = new Dictionary<Socket, Client>();
-	List<Socket> _clientsSocket = new List<Socket>();
+	Dictionary<Socket, Client>	_clientsTable = new Dictionary<Socket, Client>();
+	List<Socket>				_socketsTable = new List<Socket>();
+
 	public static bool	readMutex = false;
 
 	private MatchMaker	_matchMaker = null;
@@ -33,52 +35,20 @@ public class ServerManager : SocketScript {
 			isConnectedThread.Start();
 			InitData();
 		} catch(SocketException e) {
-			Log("Erreur creation de serveur socket: " + e.Message);
+			Log("Erreur à la création du serveur : " + e.Message);
 		}
 	}
 
-	private void Update()
-	{
-		_matchMaker.CheckStartingRooms();
-	}
-
-	// public void LoadEffectTypes()
-    // {
-    //     IDataReader buffer = DatabaseManager.Select("*", "EffectType");
-    //     while (buffer.Read())
-    //     {
-    //         int id = buffer.GetInt32(0);
-    //         string name = buffer.GetString(1);
-    //         string color = buffer.GetString(2);
-    //         int category = buffer.GetInt32(3);
-    //         GameManager.instance.effectTypes.Add(id, new EffectType(id, name, color, category));
-    //     }
-    //     Log(GameManager.instance.effectTypes.Count + " EffectType chargés.");
-    //     buffer.Close();
-    //     buffer = null;
-    // }
-
-	public static int GetNetworkID()
-	{
-		return (++NetworkID);
-
-	}
-
-	void InitData()
-	{
-		// DatabaseManager.OpenDatabase();
-		// LoadEffectTypes();
-	}
-
+#region Threads
 	void ThreadConnect()
 	{
 		Socket currentClient;
-		Log("Le Serveur est a l'ecoute du port: <b>" + port + "</b>");
+		Log("Le Serveur est à l'écoute du port: <b>" + port + "</b>");
 		while(true)
 		{
 			currentClient = _socket.Accept();
 			Log("Nouveau client: " + currentClient.GetHashCode());
-			_clientsSocket.Add(currentClient);
+			_socketsTable.Add(currentClient);
 			_clientsTable.Add(currentClient, new Client(this, currentClient));	
 		}
 	}
@@ -91,8 +61,7 @@ public class ServerManager : SocketScript {
 		while(true)
 		{
 			readList.Clear();
-			readList.AddRange(_clientsSocket);
-			Debug.Log("WAITING PACKET");
+			readList.AddRange(_socketsTable);
 			if (readList.Count > 0)
 			{
 				Debug.Log("RECEIVED PACKET");
@@ -136,38 +105,68 @@ public class ServerManager : SocketScript {
 		}
 	}
 
-	void	ClientDisconnect(Socket client)
-	{
-		foreach(NetworkEntity remote in _entities.Values)
-		{
-			// if (remote.clientID == client.GetHashCode())
-			{
-				_dispatcher.Invoke(() => Destroy(remote));
-			}
-		}
-	}
-
 	void ThreadCheckClientIsConnected()
 	{
 		while(true)
 		{
-			for(int i = 0; i < _clientsSocket.Count; i++)
+			for(int i = 0; i < _socketsTable.Count; i++)
 			{
-				Socket client = _clientsSocket[i];
-				if (client.Poll(10, SelectMode.SelectRead) && client.Available == 0 && !readMutex)
+				Socket socket = _socketsTable[i];
+				if (socket.Poll(10, SelectMode.SelectRead) && socket.Available == 0 && !readMutex)
 				{
-					_clientsSocket.Remove(client);
-					_clientsTable[client].Disconnect();
-					_clientsTable.Remove(client);
+					Client client = _clientsTable[socket];
+					_socketsTable.Remove(socket);
+					_clientsTable[socket].Disconnect();
+					_clientsTable.Remove(socket);
 					_dispatcher.Invoke(() => {
 							ClientDisconnect(client);
-							client.Close();
+							socket.Close();
 						}
 					);
 					i--;
 				}
 			}
 			Thread.Sleep(5);
+		}
+	}
+#endregion
+
+	private void Update()
+	{
+		if (Input.GetKeyDown(KeyCode.A))
+			_matchMaker.CloseAllRooms();
+		_matchMaker.CheckStartingRooms();
+	}
+
+	void OnDestroy()
+	{
+		_matchMaker.CloseAllRooms();
+		Close();
+	}
+
+	public static int GetNetworkID()
+	{
+		return (++NetworkID);
+	}
+
+	void InitData()
+	{
+		// LoadEffectTypes();
+	}
+
+	void	ClientDisconnect(Client client)
+	{
+		Debug.Log("Client disconnect : " + client);
+		if (client.room != null)
+		{
+			_dispatcher.Invoke(() => client.room.Leave(client));
+		}
+		foreach(NetworkEntity entity in _entities.Values)
+		{
+			if (entity.ownerID == client.ID)
+			{
+				_dispatcher.Invoke(() => Destroy(entity));
+			}
 		}
 	}
 
@@ -181,7 +180,7 @@ public class ServerManager : SocketScript {
 
 	public void SendToAll(Packet packet)
 	{
-		foreach(Socket client in _clientsSocket)
+		foreach(Socket client in _socketsTable)
 		{
 			SendTo(client, packet);
 		}
@@ -189,7 +188,7 @@ public class ServerManager : SocketScript {
 
 	public void SendToOther(Socket sender, Packet packet)
 	{
-		foreach(Socket client in _clientsSocket)
+		foreach(Socket client in _socketsTable)
 		{
 			if (client != sender)
 				SendTo(client, packet);
@@ -203,11 +202,13 @@ public class ServerManager : SocketScript {
 			client.Value.Disconnect();
 		}
 		_clientsTable.Clear();
-		foreach(Socket client in _clientsSocket)
+		foreach(Socket client in _socketsTable)
 		{
 			client.Close();
 		}
-		_clientsSocket.Clear();
+		_socketsTable.Clear();
+		if (_socket != null)
+			_socket.Close();
 	}
 
 	public void checkClearMessage()
@@ -296,7 +297,7 @@ public class ServerManager : SocketScript {
 		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Popup, Packet_Popup); // Serv => Client (int, string)
 
 		// GameObject
-		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Instantiate, Packet_Instantiate); // Serv => Client (str, int, bool, Vec3, Quat)
+		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Instantiate, Packet_Instantiate); // Serv => Client (str, int, int, bool, Vec3, Quat)
 		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Destroy, Packet_Destroy); // Serv => Client (int)
 		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.UpdatePosition, Packet_UpdatePosition); // Serv => Client (int, Vec3)
 		
@@ -307,10 +308,13 @@ public class ServerManager : SocketScript {
 	{
 		string login = packet.ReadString();
 		string mdp = packet.ReadString();
+		Debug.Log("-1");
 		if (_clientsTable.ContainsKey(sender))
 		{
+		Debug.Log("0");
 			if (ClientIsConnected(login))
 			{
+		Debug.Log("8");
 				_clientsTable[sender].Log("<color=red>Essaye de se connecter au compte: <b>" + login + "</b> qui est déjà connecté !</color>");
 				 SendTo(sender,
 					 PacketHandler.newPacket(

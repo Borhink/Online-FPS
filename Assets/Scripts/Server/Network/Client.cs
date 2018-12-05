@@ -92,6 +92,7 @@ public class Client {
 
 	public void AccountConnect(string login, string mdp)
 	{
+		Debug.Log("1");
 		login = login.ToLower();
 		mdp = HashPassword(mdp); // ICI On Cript le MDP avec notre Sel
 		if (DatabaseHandler.AccountConnection(login, mdp))
@@ -119,6 +120,7 @@ public class Client {
 		}
 		else
 		{
+		Debug.Log("2");
 			// Error Popup
 			Log(DatabaseHandler.Error);
 			_sm.SendTo(socket,

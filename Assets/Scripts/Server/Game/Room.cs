@@ -8,7 +8,7 @@ public class Room {
 	public int	id;
 	private int	_maxCapacity;
 
-	public Dictionary<int, Client> _players = new Dictionary<int, Client>();
+	public Dictionary<int, Client> _clients = new Dictionary<int, Client>();
 
 	private GameObject	_level;
 	private string		_levelName;
@@ -37,55 +37,97 @@ public class Room {
 
 	public void SpawnPlayer(Client client)
 	{
-		if (_players.ContainsKey(client.account.id))
+		if (_clients.ContainsKey(client.ID))
 		{
+			//Création du personnage
 			Spawn spawn = NextSpawn();
-			NetworkEntity entity = SocketScript.instance.Instantiate("Prefabs/Player", ServerManager.GetNetworkID(), false, spawn.position, spawn.rotation, _level.transform);
+			NetworkEntity entity = SocketScript.instance.Instantiate(
+				"Prefabs/Player",
+				ServerManager.GetNetworkID(),
+				client.ID,
+				false,
+				spawn.position,
+				spawn.rotation,
+				_level.transform
+			);
 			Player newPlayer =  entity.gameObject.GetComponent<Player>();
 			client.account.player = newPlayer;
+
+			//Envoi du personnage à son client
 			Packet packet = PacketHandler.newPacket(
 				(int)PacketID.Instantiate,
 				"Prefabs/Player",
 				newPlayer.networkID,
+				newPlayer.ownerID,
 				true,
 				spawn.position,
-				spawn.rotation);
+				spawn.rotation
+			);
 			client.Send(packet);
 
-			foreach (Client other in _players.Values)
+			foreach (Client other in _clients.Values)
 			{
-				Debug.Log("other : " + other.ID + ", client : " + other.ID);
-				if (other.account.id != client.account.id)
+				if (other.ID != client.ID)
 				{
-					Debug.Log("other.account.id != client.account.id");
+					//Envois des autres personnages au client
 					Player otherPlayer = other.account.player;
 					packet = PacketHandler.newPacket(
 						(int)PacketID.Instantiate,
 						"Prefabs/Player",
 						otherPlayer.networkID,
+						newPlayer.ownerID,
 						false,
-						otherPlayer.transform.position,
-						otherPlayer.transform.rotation);
+						otherPlayer.Position,
+						otherPlayer.Rotation
+					);
 					client.Send(packet);
 
+					//Envois du nouveau personnage aux autres clients
 					packet = PacketHandler.newPacket(
 						(int)PacketID.Instantiate,
 						"Prefabs/Player",
 						newPlayer.networkID,
+						newPlayer.ownerID,
 						false,
 						spawn.position,
-						spawn.rotation);
+						spawn.rotation
+					);
 					other.Send(packet);
 				}
 			}
 		}
 	}
 
+	public void RemovePlayer(Client client)
+	{
+		if (_clients.ContainsKey(client.ID))
+		{
+			foreach (Client other in _clients.Values)
+			{
+				if (other.ID != client.ID)
+				{
+					//Supprimme le personnage pour les autres clients
+					Packet packet = PacketHandler.newPacket(
+						(int)PacketID.Destroy,
+						client.account.player.networkID
+					);
+					other.Send(packet);
+				}
+			}
+			
+			//Destruction du personnage
+			SocketScript.instance.Destroy(client.account.player);
+			client.account.player = null;
+		}
+	}
+
 	private void LoadLevel()
 	{
+		//Création du niveau
 		_level = GameObject.Instantiate(Resources.Load<GameObject>("Levels/"+_levelName), new Vector3(0f, _roomOffset * id, 0f), Quaternion.identity);
-		_level.name = "Room " + id + " - " + _level;
+		_level.name = "Room " + id + " - " + _levelName;
 
+		//Récupération des points de spawn
 		Transform spawnPoints =_level.transform.Find("SpawnPoints");
 		foreach (Transform child in spawnPoints)
 		{
@@ -98,8 +140,9 @@ public class Room {
 	public void StartGame()
 	{
 		LoadLevel();
-		foreach (Client client in _players.Values)
+		foreach (Client client in _clients.Values)
 		{
+			//Envoi la demande de chargement de la map aux clients
 			Packet packet = PacketHandler.newPacket(
 				(int)PacketID.LoadScene,
 				_levelName);
@@ -114,12 +157,12 @@ public class Room {
 
 	public int PlayerCount()
 	{
-		return (_players.Count);
+		return (_clients.Count);
 	}
 
 	public int CapacityLeft()
 	{
-		return (_maxCapacity - _players.Count);
+		return (_maxCapacity - _clients.Count);
 	}
 
 	public bool CanJoin(Client client)
@@ -131,7 +174,39 @@ public class Room {
 
 	public void Join(Client client)
 	{
-		_players.Add(client.account.id, client);
+		_clients.Add(client.ID, client);
 		client.room = this;
+	}
+
+	public void Leave(Client client)
+	{
+		if (client.account.player != null)
+			RemovePlayer(client);
+		_clients.Remove(client.ID);
+		client.room = null;
+	}
+
+	public void Close()
+	{
+		foreach(Client client in _clients.Values)
+		{
+			//Renvoi des clients au MainMenu
+			client.Send(PacketHandler.newPacket(
+				(int)PacketID.LoadScene,
+				"MainMenu"
+			));
+			//Vers le home
+			client.Send(PacketHandler.newPacket(
+				(int)PacketID.OpenMenu,
+				(int)MenuID.Home
+			));
+			Debug.Log("ERROR HERE, need arg to loadScene for home");
+
+			//Destruction du personnage
+			SocketScript.instance.Destroy(client.account.player);
+			client.account.player = null;
+		}
+		//Destruction du niveau
+		GameObject.Destroy(_level);
 	}
 }
