@@ -133,8 +133,8 @@ public class ServerManager : SocketScript {
 
 	private void Update()
 	{
-		if (Input.GetKeyDown(KeyCode.A))
-			_matchMaker.CloseAllRooms();
+		// if (Input.GetKeyDown(KeyCode.A))
+		// 	_matchMaker.CloseAllRooms();
 		_matchMaker.CheckStartingRooms();
 	}
 
@@ -160,13 +160,6 @@ public class ServerManager : SocketScript {
 		if (client.room != null)
 		{
 			_dispatcher.Invoke(() => client.room.Leave(client));
-		}
-		foreach(NetworkEntity entity in _entities.Values)
-		{
-			if (entity.ownerID == client.ID)
-			{
-				_dispatcher.Invoke(() => Destroy(entity));
-			}
 		}
 	}
 
@@ -292,14 +285,14 @@ public class ServerManager : SocketScript {
 		PacketHandler.packetList.Add((int)PacketID.Play, Packet_Play); // Serv <= Client ()
 		PacketHandler.packetList.Add((int)PacketID.LoadComplete, Packet_LoadComplete); // Serv <= Client ()
 
-		// Chat/Message/Popup
-		PacketHandler.packetList.Add((int)PacketID.Chat, Packet_Chat); // Serv <=> Client (int, [int], string)
-		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Popup, Packet_Popup); // Serv => Client (int, string)
-
 		// GameObject
 		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Instantiate, Packet_Instantiate); // Serv => Client (str, int, int, bool, Vec3, Quat)
 		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Destroy, Packet_Destroy); // Serv => Client (int)
-		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.UpdatePosition, Packet_UpdatePosition); // Serv => Client (int, Vec3)
+		PacketHandler.packetList.Add((int)PacketID.UpdateTransform, Packet_UpdateTransform); // Serv <=> Client (int, Vec3, Quat)
+
+		// Chat/Message/Popup
+		PacketHandler.packetList.Add((int)PacketID.Chat, Packet_Chat); // Serv <=> Client (int, [int], string)
+		//PacketHandler.packetList.Add((int)PacketHandler.PacketID.Popup, Packet_Popup); // Serv => Client (int, string)
 		
 	}
 
@@ -308,17 +301,14 @@ public class ServerManager : SocketScript {
 	{
 		string login = packet.ReadString();
 		string mdp = packet.ReadString();
-		Debug.Log("-1");
 		if (_clientsTable.ContainsKey(sender))
 		{
-		Debug.Log("0");
 			if (ClientIsConnected(login))
 			{
-		Debug.Log("8");
 				_clientsTable[sender].Log("<color=red>Essaye de se connecter au compte: <b>" + login + "</b> qui est déjà connecté !</color>");
 				 SendTo(sender,
 					 PacketHandler.newPacket(
-						 (int)PacketID.Popup,
+						 PacketID.Popup,
 						 2,
 						 "Ce compte est déjà connecté au jeu !"
 					 )
@@ -367,6 +357,22 @@ public class ServerManager : SocketScript {
 		}
 	}
 
+	void Packet_UpdateTransform(Socket sender, Packet packet)
+	{
+		int networkID = packet.ReadInt();
+		Vector3 position = packet.ReadVector3();
+		Quaternion rotation = packet.ReadQuaternion();
+
+		Client client = _clientsTable[sender];
+		if (client != null && client.room != null)
+		{
+			Debug.Log("Received packet transform from " + client.ID + ", pos: " + position);
+			_dispatcher.Invoke(
+				() => {	client.room.UpdateTransform(client, networkID, position, rotation); }
+			);
+		}
+	}
+
 	/* *** Chat/Message/Popup *** */
 	void Packet_Chat(Socket sender, Packet packet)
 	{
@@ -383,7 +389,7 @@ public class ServerManager : SocketScript {
 				Log("<b>" + _clientsTable[sender].Login + ":</b> " + _clientsTable[sender].ParseMsg(msg));
 				SendToAll(
 					PacketHandler.newPacket(
-						(int)PacketID.Chat,
+						PacketID.Chat,
 						1,
 						"<b>" + _clientsTable[sender].Login + ":</b> " + _clientsTable[sender].ParseMsg(msg)
 					)
@@ -402,7 +408,7 @@ public class ServerManager : SocketScript {
 					Log("<b>" + _clientsTable[sender].Login + " chuchote a " + toName + ":</b> " + _clientsTable[sender].ParseMsg(msg));
 					SendTo(toSocket,
 						PacketHandler.newPacket(
-							(int)PacketID.Chat,
+							PacketID.Chat,
 							2,
 							_clientsTable[sender].Login,
 							"<b>" + _clientsTable[sender].Login + " vous chuchote:</b> " + _clientsTable[sender].ParseMsg(msg)
@@ -414,7 +420,7 @@ public class ServerManager : SocketScript {
 					Log("<color=orange><b>Le message n'a pas pu etre envoyer:</b> " + toName + " n'existe pas ou n'est pas connecte</color>");
 					SendTo(sender,
 						PacketHandler.newPacket(
-							(int)PacketID.Chat,
+							PacketID.Chat,
 							1,
 							"<color=orange><b>Le message n'a pas pu etre envoyer:</b> " + toName + " n'existe pas ou n'est pas connecte</color>"
 						)
@@ -428,7 +434,7 @@ public class ServerManager : SocketScript {
 				Log("<color=red><b>Le message n'a pas pu etre envoyer:</b> " + _clientsTable[sender].ParseMsg(msg) + "</color>");
 				SendTo(sender,
 					PacketHandler.newPacket(
-						(int)PacketID.Chat,
+						PacketID.Chat,
 						1,
 						"<color=red><b>Le message n'a pas pu etre envoyer:</b> " + _clientsTable[sender].ParseMsg(msg) + "</color>"
 					)

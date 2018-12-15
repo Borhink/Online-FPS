@@ -51,7 +51,7 @@ public class MatchMaker {
 
 				// Charge le niveau
 				Packet packet = PacketHandler.newPacket(
-					(int)PacketID.LoadScene,
+					PacketID.LoadScene,
 					room.LevelName);
 				client.Send(packet);
 				return;

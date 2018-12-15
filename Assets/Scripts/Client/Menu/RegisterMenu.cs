@@ -28,7 +28,7 @@ public class RegisterMenu : MonoBehaviour {
 				{
 					ClientManager cm = GameManager.instance.GetComponent<ClientManager>();
 					cm.Send(
-						PacketHandler.newPacket((int)PacketID.Register,
+						PacketHandler.newPacket(PacketID.Register,
 							_loginField.text,
 							_passwordField.text
 						)

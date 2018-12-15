@@ -25,7 +25,7 @@ public class HomeMenu : MonoBehaviour {
 		}
 		ClientManager cm = GameManager.instance.GetComponent<ClientManager>();
 		cm.Send(
-			PacketHandler.newPacket((int)PacketID.Play)
+			PacketHandler.newPacket(PacketID.Play)
 		);
 	}
 }

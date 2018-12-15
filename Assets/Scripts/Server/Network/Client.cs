@@ -92,7 +92,6 @@ public class Client {
 
 	public void AccountConnect(string login, string mdp)
 	{
-		Debug.Log("1");
 		login = login.ToLower();
 		mdp = HashPassword(mdp); // ICI On Cript le MDP avec notre Sel
 		if (DatabaseHandler.AccountConnection(login, mdp))
@@ -104,7 +103,7 @@ public class Client {
 
 			//Send Player Data
 			Packet packet = PacketHandler.newPacket(
-				(int)PacketID.AccountData
+				PacketID.AccountData
 			);
 			account.Write(packet);
 			Log("PlayerData Packet Size: " + packet.Size());
@@ -113,19 +112,18 @@ public class Client {
 			// Vers le home
 			_sm.SendTo(socket,
 				PacketHandler.newPacket(
-					(int)PacketID.OpenMenu,
+					PacketID.OpenMenu,
 					(int)MenuID.Home
 				)
 			);
 		}
 		else
 		{
-		Debug.Log("2");
 			// Error Popup
 			Log(DatabaseHandler.Error);
 			_sm.SendTo(socket,
 				PacketHandler.newPacket(
-					(int)PacketID.Popup,
+					PacketID.Popup,
 					1,
 					DatabaseHandler.Error
 				)
@@ -146,7 +144,7 @@ public class Client {
 
 			//Send Player Data
 			Packet packet = PacketHandler.newPacket(
-				(int)PacketID.AccountData
+				PacketID.AccountData
 			);
 			account.Write(packet);
 			Log("PlayerData Packet Size: " + packet.Size());
@@ -155,7 +153,7 @@ public class Client {
 			// Vers le home
 			_sm.SendTo(socket,
 				PacketHandler.newPacket(
-					(int)PacketID.OpenMenu,
+					PacketID.OpenMenu,
 					(int)MenuID.Home
 				)
 			);
@@ -166,7 +164,7 @@ public class Client {
 			Log(DatabaseHandler.Error);
 			_sm.SendTo(socket,
 				PacketHandler.newPacket(
-					(int)PacketID.Popup,
+					PacketID.Popup,
 					1,
 					DatabaseHandler.Error
 				)

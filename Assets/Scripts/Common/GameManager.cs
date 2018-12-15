@@ -106,7 +106,7 @@ public class GameManager : MonoBehaviour {
 		Debug.Log("SEND LOAD COMPLETE PACKET");
 		ClientManager cm = GameManager.instance.GetComponent<ClientManager>();
 		cm.Send(
-			PacketHandler.newPacket((int)PacketID.LoadComplete
+			PacketHandler.newPacket(PacketID.LoadComplete
 			)
 		);
 	}

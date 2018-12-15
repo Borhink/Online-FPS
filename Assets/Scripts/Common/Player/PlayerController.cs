@@ -4,22 +4,36 @@ using System;
 using System.Net.Sockets;
 using UnityEngine;
 
-[RequireComponent(typeof(Player))]
+[RequireComponent(typeof(PlayerMotor))]
 public class PlayerController : MonoBehaviour
 {
-    private Player _player = null;
+	[SerializeField] private float	_speed = 5f;
+	[SerializeField] private float	_sensivity = 3f;
 
-    void Awake()
+
+	private PlayerMotor 		_motor;
+
+    private void Start()
 	{
-		_player = GetComponent<Player>();
-        Debug.Log("PlayerController Awake");
+		_motor = GetComponent<PlayerMotor>();
 	}
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Z))
-        {
-            _player.Move(new Vector3(0f, 1f, 0f));
-        }
+        //Déplacements
+		float xMov = Input.GetAxis("Horizontal");
+		float zMov = Input.GetAxis("Vertical");
+		Vector3 moveHorizontal = transform.right * xMov;
+		Vector3 moveVertical = transform.forward * zMov;
+		Vector3 velocity = (moveHorizontal + moveVertical) * _speed;
+		_motor.Move(velocity);
+
+		//Rotations
+		float yRot = Input.GetAxisRaw("Mouse X");
+		Vector3 rotation = new Vector3(0, yRot, 0) * _sensivity;
+		_motor.Rotate(rotation);
+		float xRot = Input.GetAxisRaw("Mouse Y");
+		float cameraRotationX = xRot * _sensivity;
+		_motor.RotateCamera(cameraRotationX);
     }
 }

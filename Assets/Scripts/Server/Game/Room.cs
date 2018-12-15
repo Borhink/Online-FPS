@@ -4,11 +4,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class Room {
+	private EntityManager	_em = new EntityManager();
+	public Dictionary<int, Client> _clients = new Dictionary<int, Client>();
+
 	private float _roomOffset = 100f;
 	public int	id;
 	private int	_maxCapacity;
-
-	public Dictionary<int, Client> _clients = new Dictionary<int, Client>();
 
 	private GameObject	_level;
 	private string		_levelName;
@@ -41,7 +42,7 @@ public class Room {
 		{
 			//Création du personnage
 			Spawn spawn = NextSpawn();
-			NetworkEntity entity = SocketScript.instance.Instantiate(
+			NetworkEntity entity = _em.Instantiate(
 				"Prefabs/Player",
 				ServerManager.GetNetworkID(),
 				client.ID,
@@ -55,7 +56,7 @@ public class Room {
 
 			//Envoi du personnage à son client
 			Packet packet = PacketHandler.newPacket(
-				(int)PacketID.Instantiate,
+				PacketID.Instantiate,
 				"Prefabs/Player",
 				newPlayer.networkID,
 				newPlayer.ownerID,
@@ -72,7 +73,7 @@ public class Room {
 					//Envois des autres personnages au client
 					Player otherPlayer = other.account.player;
 					packet = PacketHandler.newPacket(
-						(int)PacketID.Instantiate,
+						PacketID.Instantiate,
 						"Prefabs/Player",
 						otherPlayer.networkID,
 						newPlayer.ownerID,
@@ -84,7 +85,7 @@ public class Room {
 
 					//Envois du nouveau personnage aux autres clients
 					packet = PacketHandler.newPacket(
-						(int)PacketID.Instantiate,
+						PacketID.Instantiate,
 						"Prefabs/Player",
 						newPlayer.networkID,
 						newPlayer.ownerID,
@@ -108,7 +109,7 @@ public class Room {
 				{
 					//Supprimme le personnage pour les autres clients
 					Packet packet = PacketHandler.newPacket(
-						(int)PacketID.Destroy,
+						PacketID.Destroy,
 						client.account.player.networkID
 					);
 					other.Send(packet);
@@ -116,7 +117,7 @@ public class Room {
 			}
 			
 			//Destruction du personnage
-			SocketScript.instance.Destroy(client.account.player);
+			_em.Destroy(client.account.player);
 			client.account.player = null;
 		}
 	}
@@ -144,9 +145,34 @@ public class Room {
 		{
 			//Envoi la demande de chargement de la map aux clients
 			Packet packet = PacketHandler.newPacket(
-				(int)PacketID.LoadScene,
+				PacketID.LoadScene,
 				_levelName);
 			client.Send(packet);
+		}
+	}
+
+	public void UpdateTransform(Client client, int networkID, Vector3 position, Quaternion rotation)
+	{
+		NetworkEntity entity = _em.GetEntity(networkID);
+		if (!entity || entity.ownerID != client.ID)
+			return;
+
+		entity.transform.position = position;
+		entity.transform.rotation = rotation;
+
+		foreach (Client other in _clients.Values)
+		{
+			if (other.ID != client.ID)
+			{
+				//Update le transform pour les autres clients
+				Packet packet = PacketHandler.newPacket(
+					PacketID.UpdateTransform,
+					networkID,
+					entity.transform.position,
+					entity.transform.rotation
+				);
+				other.Send(packet);
+			}
 		}
 	}
 
@@ -183,6 +209,7 @@ public class Room {
 		if (client.account.player != null)
 			RemovePlayer(client);
 		_clients.Remove(client.ID);
+		// _em.DestroyAllOf(client.ID); TODO detruires les objets associés si utile (+ MàJ autres clients)
 		client.room = null;
 	}
 
@@ -192,18 +219,18 @@ public class Room {
 		{
 			//Renvoi des clients au MainMenu
 			client.Send(PacketHandler.newPacket(
-				(int)PacketID.LoadScene,
+				PacketID.LoadScene,
 				"MainMenu"
 			));
 			//Vers le home
 			client.Send(PacketHandler.newPacket(
-				(int)PacketID.OpenMenu,
+				PacketID.OpenMenu,
 				(int)MenuID.Home
 			));
 			Debug.Log("ERROR HERE, need arg to loadScene for home");
 
 			//Destruction du personnage
-			SocketScript.instance.Destroy(client.account.player);
+			_em.Destroy(client.account.player);
 			client.account.player = null;
 		}
 		//Destruction du niveau

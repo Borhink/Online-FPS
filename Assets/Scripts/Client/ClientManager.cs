@@ -14,6 +14,7 @@ public class ClientManager : SocketScript {
 	public static bool	readMutex = false;
 	
 	public Account		account;
+	private EntityManager	_em = new EntityManager();
 
 	void Awake()
 	{
@@ -150,14 +151,14 @@ public class ClientManager : SocketScript {
 		// PacketHandler.packetList.Add((int)PacketID.Play, Packet_Play); // Serv <= Client ()
 		// PacketHandler.packetList.Add((int)PacketID.LoadComplete, Packet_LoadComplete); // Serv <= Client ()
 
-		// Chat/Message/Popup
-		PacketHandler.packetList.Add((int)PacketID.Chat, Packet_Chat); // Serv <=> Client (int, [int], string)
-		PacketHandler.packetList.Add((int)PacketID.Popup, Packet_Popup); // Serv => Client (int, string)
-
 		// GameObject
 		PacketHandler.packetList.Add((int)PacketID.Instantiate, Packet_Instantiate); // Serv => Client (str, int, int, bool, Vec3, Quat)
 		PacketHandler.packetList.Add((int)PacketID.Destroy, Packet_Destroy); // Serv => Client (int)
-		PacketHandler.packetList.Add((int)PacketID.UpdatePosition, Packet_UpdatePosition); // Serv => Client (int, Vec3)
+		PacketHandler.packetList.Add((int)PacketID.UpdateTransform, Packet_UpdateTransform); // Serv => Client (int, Vec3, Quat)
+
+		// Chat/Message/Popup
+		PacketHandler.packetList.Add((int)PacketID.Chat, Packet_Chat); // Serv <=> Client (int, [int], string)
+		PacketHandler.packetList.Add((int)PacketID.Popup, Packet_Popup); // Serv => Client (int, string)
 
 	}
 
@@ -223,7 +224,7 @@ public class ClientManager : SocketScript {
 		Quaternion rotation = packet.ReadQuaternion();
 		_dispatcher.Invoke(
 			() => {
-				NetworkEntity entity = Instantiate(prefabName, networkID, ownerID, isLocalPlayer, position, rotation);
+				NetworkEntity entity = _em.Instantiate(prefabName, networkID, ownerID, isLocalPlayer, position, rotation);
 			}
 		);
 	}
@@ -231,7 +232,7 @@ public class ClientManager : SocketScript {
 	void Packet_Destroy(Socket sender, Packet packet)
 	{
 		int index = packet.ReadInt();
-		NetworkEntity entity = GetEntity(index);
+		NetworkEntity entity = _em.GetEntity(index);
 		if (entity != null)
 		{
 			_dispatcher.Invoke(
@@ -240,19 +241,22 @@ public class ClientManager : SocketScript {
 		}
 	}
 
-	void Packet_UpdatePosition(Socket sender, Packet packet)
+	void Packet_UpdateTransform(Socket sender, Packet packet)
 	{
 		int index = packet.ReadInt();
 		Vector3 position = packet.ReadVector3();
-		NetworkEntity entity = GetEntity(index);
+		Quaternion rotation = packet.ReadQuaternion();
+		NetworkEntity entity = _em.GetEntity(index);
 		if (entity != null)
 		{
 			_dispatcher.Invoke(
 				() => {
-					entity.gameObject.transform.position = position;
+					entity.transform.position = position;
+					entity.transform.rotation = rotation;
 				}
 			);
 		}
+		Debug.Log("Update transform of " + entity.ownerID);
 	}
 
 }
